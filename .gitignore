@@ -1,0 +1,5 @@
+.venv/
+__pycache__/
+*.pyc
+data/raw/incident_event_log.csv
+data/processed/incidents.csv

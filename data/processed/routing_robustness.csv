@@ -1,0 +1,4 @@
+check,router_accuracy,today_accuracy,test_incidents
+Random 70/30 split (not how it would be deployed),0.6200434546442151,0.6606463878326996,7364
+"Retrained on everything before 2016-04, tested on 2016-04",0.6018291897462321,0.6891665593198506,7763
+"Retrained on everything before 2016-05, tested on 2016-05",0.6277762911426278,0.6676478458656676,7474

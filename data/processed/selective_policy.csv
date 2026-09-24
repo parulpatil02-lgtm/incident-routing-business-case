@@ -1,0 +1,13 @@
+metric,value
+categories_chosen_on_validation,Category 23
+test_incidents,7364
+test_incidents_in_chosen_categories,330
+share_of_test_incidents_affected,0.04481260184682238
+today_accuracy_in_chosen,0.06666666666666667
+rule_accuracy_in_chosen_table,0.3515151515151515
+rule_accuracy_in_chosen_single_group,0.42424242424242425
+single_group_rule,Category 23 -> Group 70
+overall_accuracy_today,0.6629549158066268
+overall_accuracy_with_policy,0.6757197175448126
+net_incidents_routed_right_instead_of_wrong,94
+net_incidents_single_group_rule,118

@@ -1,0 +1,4 @@
+scenario,in_incidents_per_month,in_first_time_right_gain,in_handoffs_avoided_per_incident,in_like_for_like_extra_hours,in_share_of_gap_caused_by_handoff,in_sla_gap,in_minutes_per_handoff,in_cost_per_analyst_hour,in_one_off_effort_hours,incidents_routed_right_per_month,handoffs_avoided_per_month,elapsed_hours_saved_per_month,incidents_newly_meeting_sla_per_month,analyst_hours_saved_per_month,analyst_cost_saved_per_month,analyst_cost_saved_per_year,one_off_cost,payback_days
+Low,355.0,0.1953,1.0,62.521,0.25,0.1733,10,35,8,69.3333,69.3333,1083.6981,3.0042,11.5556,404.4444,4853.3333,280,20.7692
+Middle,355.0,0.2764,1.5,62.521,0.5,0.1733,15,45,8,98.1364,147.2045,3067.7941,8.5045,36.8011,1656.0511,19872.6136,360,6.5215
+High,355.0,0.3576,1.9,62.521,1.0,0.1733,20,55,8,126.9394,241.1848,7936.3838,22.0011,80.3949,4421.7222,53060.6667,440,2.9853
