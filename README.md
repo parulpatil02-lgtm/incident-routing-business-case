@@ -57,8 +57,9 @@ formulas so every assumption can be changed.
 ## How I checked the numbers
 
 - **Independent recomputation.** The hand-off counts come from pandas and were recomputed in SQL with window
-  functions ([`sql/`](sql)); the two match exactly. `python tests/test_analysis.py` runs 10 checks, including that
-  no training incident is later than any test incident and that the router never sees a field that reveals the answer.
+  functions ([`sql/`](sql)); the two match exactly. `python tests/test_analysis.py` runs 13 checks, including that
+  no training incident is later than any test incident, that the router never sees a field that reveals the answer,
+  and that the Category 23 headline (42.4% vs 6.7%) is reproduced with plain loops.
 - **Excel verified by Excel.** `tests/verify_excel_model.ps1` opens the workbook in Excel, lets it calculate every
   formula, and compares all 27 results with the Python calculation.
 - **A result I did not expect.** My first hypothesis was that a model would beat human routing. I tested it, it
@@ -112,7 +113,7 @@ python -m venv .venv
 - The labels are the group that finally resolved each ticket: right in hindsight, but not necessarily the best
   first assignment. Routing fields are taken from the first record where they are filled in, which may be after some triage.
 - The benefit of the Category 23 rule depends on the window (slightly negative in March, +24 points in April, +36 in May).
-- Group 70 resolves only 35% to 43% of Category 23 tickets, so the hand-off may partly move rather than disappear.
+- Group 70 resolves only 33% to 43% of Category 23 tickets, depending on the month, so the hand-off may partly move rather than disappear.
 - Nothing here has been piloted. The agent-level variation (13 of 21 agents differ beyond chance) is a hypothesis, not a finding to act on.
 
 ## Stack

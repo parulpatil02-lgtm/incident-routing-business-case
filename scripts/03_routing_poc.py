@@ -27,6 +27,7 @@ OUT = ROOT / "data" / "processed"
 ASSETS = ROOT / "docs" / "assets"
 
 FEATURES = ["category", "subcategory", "u_symptom", "location", "contact_type", "impact", "urgency"]
+EXTRA_FEATURES = ["caller_id", "opened_by"]  # tried in the robustness checks only
 TABLE_LEVELS = [["category", "subcategory", "u_symptom"], ["category", "subcategory"], ["category"]]
 MIN_SUPPORT = 5      # a rule needs this many past incidents behind it
 TEST_SHARE = 0.30
@@ -39,7 +40,7 @@ SEED = 42
 def load() -> pd.DataFrame:
     d = pd.read_csv(INCIDENTS, parse_dates=["opened_at"])
     d = d.dropna(subset=["initial_group", "final_group"]).sort_values("opened_at").reset_index(drop=True)
-    d[FEATURES] = d[FEATURES].fillna("MISSING")
+    d[FEATURES + EXTRA_FEATURES] = d[FEATURES + EXTRA_FEATURES].fillna("MISSING")
     return d
 
 
@@ -58,23 +59,20 @@ def fit_routing_table(train: pd.DataFrame) -> list[tuple[list[str], dict, pd.Dat
 
 
 def predict_routing_table(df: pd.DataFrame, tables, fallback: str) -> np.ndarray:
-    keys = [list(df[cols].itertuples(index=False, name=None)) for cols, _, _ in tables]
-    predictions = []
-    for i in range(len(df)):
-        for (_, mapping, _), level_keys in zip(tables, keys):
-            if level_keys[i] in mapping:
-                predictions.append(mapping[level_keys[i]])
-                break
-        else:
-            predictions.append(fallback)
-    return np.array(predictions)
+    """The most specific rule that applies wins; the least specific level is applied first and overwritten."""
+    predicted = pd.Series(fallback, index=df.index, dtype=object)
+    for cols, mapping, _ in reversed(tables):
+        keys = pd.Series(list(df[cols].itertuples(index=False, name=None)), index=df.index)
+        hit = keys.isin(mapping)
+        predicted[hit] = keys[hit].map(mapping)
+    return predicted.to_numpy()
 
 
-def forest_predict(train: pd.DataFrame, test: pd.DataFrame) -> np.ndarray:
+def forest_predict(train: pd.DataFrame, test: pd.DataFrame, features: list[str] = FEATURES) -> np.ndarray:
     encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=-1)
     forest = RandomForestClassifier(n_estimators=100, min_samples_leaf=2, n_jobs=1, random_state=SEED)
-    forest.fit(encoder.fit_transform(train[FEATURES]), train.final_group)
-    return forest.predict(encoder.transform(test[FEATURES]))
+    forest.fit(encoder.fit_transform(train[features]), train.final_group)
+    return forest.predict(encoder.transform(test[features]))
 
 
 def known_at_open_share() -> dict:
@@ -100,21 +98,21 @@ def score(name: str, predicted: np.ndarray, test: pd.DataFrame, current_ok: np.n
 
 
 def robustness(d: pd.DataFrame) -> pd.DataFrame:
-    rows = []
-    rng = np.random.default_rng(SEED)
-    order = rng.permutation(len(d))
+    def row(label, predicted, chunk):
+        return (label, (predicted == chunk.final_group.to_numpy()).mean(), (chunk.initial_group == chunk.final_group).mean(), len(chunk))
+
     cut = int(len(d) * (1 - TEST_SHARE))
+    order = np.random.default_rng(SEED).permutation(len(d))
     tr, te = d.iloc[order[:cut]], d.iloc[order[cut:]]
-    rows.append(("Random 70/30 split (not how it would be deployed)",
-                 (forest_predict(tr, te) == te.final_group.to_numpy()).mean(),
-                 (te.initial_group == te.final_group).mean(), len(te)))
+    rows = [row("Random 70/30 split (not how it would be deployed)", forest_predict(tr, te), te)]
+    tr, te = d.iloc[:cut], d.iloc[cut:]
+    rows.append(row("Main test split, with the caller and the agent who opened the ticket added as fields",
+                    forest_predict(tr, te, FEATURES + EXTRA_FEATURES), te))
     months = d.opened_at.dt.to_period("M")
     for month, chunk in d.groupby(months):
         past = d[d.opened_at < chunk.opened_at.min()]
         if len(past) >= 3000 and len(chunk) >= 100:
-            rows.append((f"Retrained on everything before {month}, tested on {month}",
-                         (forest_predict(past, chunk) == chunk.final_group.to_numpy()).mean(),
-                         (chunk.initial_group == chunk.final_group).mean(), len(chunk)))
+            rows.append(row(f"Retrained on everything before {month}, tested on {month}", forest_predict(past, chunk), chunk))
     return pd.DataFrame(rows, columns=["check", "router_accuracy", "today_accuracy", "test_incidents"])
 
 

@@ -26,26 +26,25 @@ SCENARIOS = ["Low", "Middle", "High"]
 
 def data_inputs() -> dict:
     d = pd.read_csv(PROCESSED / "incidents.csv", parse_dates=["opened_at"])
-    c = d[(d.category == CATEGORY) & d.initial_group.notna() & d.final_group.notna()].copy()
-    c["month"] = c.opened_at.dt.to_period("M")
+    c = d[(d.category == CATEGORY) & d.initial_group.notna() & d.final_group.notna()]
     metrics = pd.read_csv(PROCESSED / "current_state_metrics.csv", index_col="metric")["value"]
     policy = pd.read_csv(PROCESSED / "selective_policy.csv", index_col="metric")["value"]
 
     rule_group = policy["single_group_rule"].split("-> ")[1]
-    core = c[c.month.between("2016-03", "2016-05")]
+    core = c[c.opened_at.between(metrics["core_period_start"], metrics["core_period_end"] + " 23:59:59")]
+    core = core.assign(month=core.opened_at.dt.to_period("M"), today_ok=core.initial_group == core.final_group,
+                       rule_ok=core.final_group == rule_group, bounced=core.group_changes > 0)
     per_month = core.groupby("month").agg(
-        incidents=("number", "size"),
-        today_first_time_right=("initial_group", lambda s: (s == core.loc[s.index, "final_group"]).mean()),
-        resolved_by_rule_group=("final_group", lambda s: (s == rule_group).mean()),
-        hand_off_rate=("group_changes", lambda s: (s > 0).mean()),
-    )
+        incidents=("number", "size"), today_first_time_right=("today_ok", "mean"),
+        resolved_by_rule_group=("rule_ok", "mean"), hand_off_rate=("bounced", "mean"))
     per_month["gain_points"] = per_month.resolved_by_rule_group - per_month.today_first_time_right
     per_month.round(4).to_csv(PROCESSED / "category23_by_month.csv", index_label="month")
 
-    whole = core.final_group.eq(rule_group).mean() - (core.initial_group == core.final_group).mean()
+    whole = core.rule_ok.mean() - core.today_ok.mean()
     holdout = float(policy["rule_accuracy_in_chosen_single_group"]) - float(policy["today_accuracy_in_chosen"])
     return {
         "rule": f"{CATEGORY} -> {rule_group}",
+        "monthly_incidents": ", ".join(str(n) for n in per_month.incidents),
         "incidents_per_month": float(per_month.incidents.mean()),
         "gain_low": float(whole),
         "gain_high": holdout,
@@ -113,7 +112,7 @@ def write_excel(x: dict, table: pd.DataFrame) -> None:
 
     rows = [  # (label, unit, values, number_format, kind, basis)
         (f"{CATEGORY} incidents per month", "incidents", cols("in_incidents_per_month"), "#,##0", "DATA",
-         "Average of Mar, Apr and May 2016 (350, 359, 356)"),
+         f"Average of the three core months ({x['monthly_incidents']})"),
         ("First-time-right gain from the rule", "points", cols("in_first_time_right_gain"), "0.0%", "DATA",
          "Low: whole Mar-May period. High: held-out latest data. Middle: midpoint"),
         ("Hand-offs avoided per incident routed right", "count", cols("in_handoffs_avoided_per_incident"), "0.0",
@@ -170,9 +169,8 @@ def write_excel(x: dict, table: pd.DataFrame) -> None:
         ws.cell(row=r, column=2, value=unit)
         for j in range(3):
             letter = get_column_letter(3 + j)
-            formula = template.format(c=letter, **{k: v for k, v in R.items()}, **o_rows)
-            # placeholders like {c}{inc} expand to e.g. C5
-            cell = ws.cell(row=r, column=3 + j, value=formula)
+            # placeholders like {c}{inc} expand to a cell address such as C5
+            cell = ws.cell(row=r, column=3 + j, value=template.format(c=letter, **R, **o_rows))
             cell.number_format = fmt
         ws.cell(row=r, column=6, value=note)
 

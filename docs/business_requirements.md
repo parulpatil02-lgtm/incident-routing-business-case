@@ -29,7 +29,7 @@ hand-off adds a median 62.5 hours to resolution and costs 17 points of SLA attai
 
 Category 23 is the clearest case: 84.5% of its tickets change hands (versus 41% overall), it produces
 8.9% of all hand-offs from 4.6% of incidents, and 89% of its tickets are first assigned to Group 20, which
-resolves only 13% of them. Group 70 resolves 35%. Its first-time-right rate fell from 36% in March to 7%
+resolves only 13% of all Category 23 tickets. Group 70 resolves 40% (33% to 43% month by month). Its first-time-right rate fell from 36% in March to 7%
 in May, and the data cannot say why.
 
 ## 3. Stakeholders
@@ -88,7 +88,7 @@ Baselines are measured from the data. **The thresholds are proposals to be agree
 
 | Risk or assumption | Effect | Mitigation |
 |---|---|---|
-| **Group 70 receives tickets it does not resolve** (57% to 65% of Category 23 tickets are resolved elsewhere) | The hand-off may just move, and Group 70's workload rises | Reason codes (FR-3); Group 70 lead confirms capacity; four-week pilot with a rollback threshold |
+| **Group 70 receives tickets it does not resolve** (57% to 67% of Category 23 tickets are resolved elsewhere, depending on the month) | The hand-off may just move, and Group 70's workload rises | Reason codes (FR-3); Group 70 lead confirms capacity; four-week pilot with a rollback threshold |
 | **Group 20 may be a deliberate triage step** (for example a security check) that the data cannot show | The rule could bypass a needed control | Root-cause conversation before go-live (BR-3) |
 | The gain depends on the window measured: the rule would have been slightly worse in March, +24 points in April, +36 in May | The benefit may be smaller than the held-out figure | The impact model uses a low case (+19.5 points, whole period) |
 | Time and SLA gaps are associations, not proof that hand-offs cause them | Benefits may be overstated | The model applies a haircut of 25% to 100% (an assumption) |

@@ -37,8 +37,7 @@ head = ParagraphStyle("head", parent=cell, fontName="Helvetica-Bold", textColor=
 bullet = ParagraphStyle("bl", parent=body, spaceAfter=3)
 
 
-def num(x):
-    return float(x)
+num = float  # the metric CSVs are read as text-typed series
 
 
 def callout(text, accent=TEAL, bg=TEAL_SOFT):
@@ -97,7 +96,11 @@ def main():
     focus_share_inc, focus_share_hand = num(m["focus_share_of_incidents"]), num(m["focus_share_of_all_handoffs"])
     today_c, rule_c = num(sp["today_accuracy_in_chosen"]), num(sp["rule_accuracy_in_chosen_single_group"])
     net_rule = int(float(sp["net_incidents_single_group_rule"]))
-    low, mid, high = sc.loc["Low"], sc.loc["Middle"], sc.loc["High"]
+    low, high = sc.loc["Low"], sc.loc["High"]
+    first_month, last_month = bm.iloc[0], bm.iloc[-1]
+    rule_share_lo, rule_share_hi = bm.resolved_by_rule_group.min(), bm.resolved_by_rule_group.max()
+    gain_by_month = {pd.Period(r.month).strftime("%B"): r.gain_points * 100 for r in bm.itertuples()}
+    with_extras = rb.router_accuracy.iloc[1]
 
     doc = SimpleDocTemplate(str(OUT), pagesize=LETTER, topMargin=0.7 * inch, bottomMargin=0.7 * inch,
                             leftMargin=0.85 * inch, rightMargin=0.85 * inch,
@@ -176,8 +179,8 @@ def main():
     s.append(table(rows, [3.9 * inch, 0.9 * inch, 0.9 * inch, 1.1 * inch]))
     s.append(Spacer(1, 5))
     s.append(Paragraph(
-        "The result holds under every way of testing it, and adding the caller, the agent who opened the ticket and the priority "
-        f"did not help (61.6% vs 61.3%). The likely reason is that the fields recorded at intake ({fields['category_known_at_open']:.0%} of "
+        "The result holds under every way of testing it, and adding the caller and the agent who opened the ticket "
+        f"did not help ({with_extras:.1%} vs {forest:.1%} for the same model without them). The likely reason is that the fields recorded at intake ({fields['category_known_at_open']:.0%} of "
         f"tickets have a category and {fields['u_symptom_known_at_open']:.0%} a symptom) do not contain what is needed to route many tickets. "
         "Diagnosis happens after the ticket is opened.", body))
 
@@ -196,8 +199,9 @@ def main():
     s.append(table(rows, [0.9 * inch, 0.8 * inch, 1.3 * inch, 1.45 * inch, 1.1 * inch, 1.25 * inch]))
     s.append(Spacer(1, 5))
     s.append(Paragraph(
-        "<b>The problem is getting worse, and the data cannot say why.</b> First-time-right fell from 36% to 7% in three months while the "
-        "hand-off rate rose from 72% to 96%. The rule would have been slightly worse in March, so the benefit depends on the window. "
+        f"<b>The problem is getting worse, and the data cannot say why.</b> First-time-right fell from {first_month.today_first_time_right:.0%} to "
+        f"{last_month.today_first_time_right:.0%} in three months while the hand-off rate rose from {first_month.hand_off_rate:.0%} to "
+        f"{last_month.hand_off_rate:.0%}. The rule would have been slightly worse in March, so the benefit depends on the window. "
         "Something changed in how these tickets are routed; finding out what comes before any rule change.", body))
 
     s.append(Paragraph("3.5 &nbsp; A second lever to test, not yet to act on", h3))
@@ -210,7 +214,9 @@ def main():
     s.append(CondPageBreak(3 * inch))
     s.append(Paragraph("4. Options considered", h2))
     rows = [["Option", "Evidence", "Effort and risk", "Verdict"],
-            ["A. Do nothing", "41% of incidents change teams; Category 23 is getting worse (36% to 7% first time right)", "No cost, but the cost continues", "Not recommended"],
+            ["A. Do nothing", f"{num(m['share_bounced']):.0%} of incidents change teams; Category 23 is getting worse "
+                              f"({first_month.today_first_time_right:.0%} to {last_month.today_first_time_right:.0%} first time right)",
+             "No cost, but the cost continues", "Not recommended"],
             ["B. Machine-learning router, all categories", f"{forest:.1%} accuracy vs {today:.1%} today; worse under every test", "Highest: build or buy, integrate, maintain (not costed here)", "Reject"],
             ["C. Routing rules for every category", f"{rtable:.1%} vs {today:.1%} today", "Moderate; would degrade routing that works", "Reject"],
             ["D. One rule for Category 23, reason codes, monthly review", f"{rule_c:.1%} vs {today_c:.1%} today on later incidents; chosen without seeing the test data", "About 8 hours of configuration (assumption); risk that hand-offs move to Group 70", "<b>Recommend as a four-week pilot</b>"],
@@ -239,9 +245,10 @@ def main():
 
     s.append(Paragraph("6. Risks and limitations", h2))
     s.append(bullets([
-        "<b>The hand-off may only move.</b> Group 70 resolves 35% to 43% of Category 23 tickets, so most of what it receives directly will still need passing on. The pilot tracks reason codes and Group 70's workload.",
+        f"<b>The hand-off may only move.</b> Group 70 resolves {rule_share_lo:.0%} to {rule_share_hi:.0%} of Category 23 tickets month by month, so most of what it receives directly will still need passing on. The pilot tracks reason codes and Group 70's workload.",
         "<b>Group 20 may be a deliberate step</b> (for example a triage or security check) that the data cannot show.",
-        "<b>The benefit depends on the window:</b> slightly negative in March, +24 points in April, +36 in May. The model's low case uses the whole-period figure.",
+        "<b>The benefit depends on the window:</b> " + ", ".join(f"{g:+.0f} points in {month}" for month, g in gain_by_month.items())
+        + ". The model's low case uses the whole-period figure.",
         "<b>Time and SLA gaps are associations.</b> The model applies a haircut of 25% to 100% to reflect that.",
         "<b>One log, one company, about three months.</b> Volumes and patterns may not hold elsewhere, and the routing fields are taken from the first record where each is filled in, which may be after some triage.",
         "<b>Labels are the group that finally resolved the ticket.</b> That is correct in hindsight, but not necessarily the best first assignment."]))
@@ -256,7 +263,7 @@ def main():
 
     s.append(Paragraph("Appendix: how the numbers were checked", h2))
     s.append(bullets([
-        "The hand-off counts were computed in pandas and recomputed independently in SQL with window functions; the two match exactly (19,088 hand-offs, and the top ten categories).",
+        "The hand-off counts were computed in pandas and recomputed independently in SQL with window functions; the two match exactly (19,088 hand-offs across all incidents, and the top ten categories).",
         "The Excel model was calculated by Excel itself and compared with the Python calculation: all 27 results match.",
         "Automated tests confirm no training incident is later than any test incident and that the router is never given a field that reveals the answer.",
         "Category selection used a validation slice of the training period only; the test set was not used to choose it."]))

@@ -152,17 +152,17 @@ def main():
     ax.bar_label(bars, fmt="%.1f%%", fontsize=8)
     ax.set_xlabel("Times an incident changed teams")
     ax.set_ylabel("Share of incidents (%)")
-    ax.set_title("Only 59% of incidents are resolved without changing hands", color=INK, fontsize=10, fontweight="bold")
+    ax.set_title(f"Only {1 - m['share_bounced']:.0%} of incidents are resolved without changing hands", color=INK, fontsize=10, fontweight="bold")
     ax.spines[["top", "right"]].set_visible(False)
     fig.tight_layout()
     fig.savefig(ASSETS / "handoffs_distribution.png", dpi=160)
     plt.close(fig)
 
     fig, axes = plt.subplots(1, 2, figsize=(6.6, 3.4))
-    for ax, key, title in zip(axes, [("median_hours_not_bounced", "median_hours_bounced"), ("sla_not_bounced", "sla_bounced")],
-                              ["Median hours to resolve", "Incidents meeting SLA (%)"]):
-        scale = 1 if "hours" in key[0] else 100
-        ax.bar(["No hand-off", "Changed hands"], [m[key[0]] * scale, m[key[1]] * scale], color=[ACCENT, WARN])
+    for ax, (no_handoff, handoff, scale), title in zip(
+            axes, [("median_hours_not_bounced", "median_hours_bounced", 1), ("sla_not_bounced", "sla_bounced", 100)],
+            ["Median hours to resolve", "Incidents meeting SLA (%)"]):
+        ax.bar(["No hand-off", "Changed hands"], [m[no_handoff] * scale, m[handoff] * scale], color=[ACCENT, WARN])
         ax.set_title(title, fontsize=9, color=INK, fontweight="bold")
         ax.spines[["top", "right"]].set_visible(False)
         ax.bar_label(ax.containers[0], fmt="%.1f", fontsize=8)

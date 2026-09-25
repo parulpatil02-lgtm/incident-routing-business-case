@@ -6,6 +6,8 @@ Checks that the analysis can be trusted.
   2. Data invariants on the incident table.
   3. No leakage: the router is trained only on earlier incidents than it is
      tested on, and is never given a field that reveals the answer.
+  4. The Category 23 headline and the routing-table lookup are recomputed
+     with plain loops and must match the vectorised pipeline.
 
 Run:  python tests/test_analysis.py
 """
@@ -73,6 +75,29 @@ def main():
     check(train.opened_at.max() <= test.opened_at.min(), "every training incident was opened before every test incident")
     forbidden = {"final_group", "initial_group", "group_changes", "resolved_at", "resolution_hours", "made_sla", "reopen_count"}
     check(not (forbidden & set(poc.FEATURES)), "router features exclude anything that reveals the outcome")
+
+    # 4. The Category 23 headline, recomputed with plain loops instead of the pipeline's vectorised code
+    modal = train[train.category == "Category 23"].final_group.value_counts().index[0]
+    rows = [r for r in test.itertuples() if r.category == "Category 23"]
+    check(len(rows) == int(pd.read_csv(ROOT / "data" / "processed" / "selective_policy.csv", index_col="metric").loc["test_incidents_in_chosen_categories", "value"]),
+          "Category 23 test tickets: loop count = pipeline count")
+    check(abs(sum(r.final_group == modal for r in rows) / len(rows) - 0.4242) < 1e-3 and abs(sum(r.initial_group == r.final_group for r in rows) / len(rows) - 0.0667) < 1e-3,
+          f"Category 23 held-out accuracy recomputed: rule to {modal} 42.4% vs today 6.7%")
+
+    # 5. The routing-table lookup gives what a plain row-by-row loop gives
+    tables = poc.fit_routing_table(train)
+    sample = test.iloc[:500]
+    fallback = train.final_group.mode().iloc[0]
+
+    def loop_predict(row):
+        for cols, mapping, _ in tables:
+            key = tuple(getattr(row, c) for c in cols)
+            if key in mapping:
+                return mapping[key]
+        return fallback
+
+    check(list(poc.predict_routing_table(sample, tables, fallback)) == [loop_predict(r) for r in sample.itertuples()],
+          "routing-table predictions = row-by-row loop (500 test incidents)")
 
     print(f"\n{'ALL PASSED' if not failures else f'{failures} FAILURE(S)'}")
     raise SystemExit(bool(failures))
