@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 P = ROOT / "data" / "processed"
 ASSETS = ROOT / "docs" / "assets"
 OUT = ROOT / "Business_Case_Incident_Routing.pdf"
-REPO_URL = None  # set to the GitHub URL once the repository exists
+REPO_URL = "https://github.com/parulpatil02-lgtm/incident-routing-business-case"
 
 TEAL, TEAL_DARK, TEAL_SOFT = colors.HexColor("#1F6F5C"), colors.HexColor("#0F4438"), colors.HexColor("#E3EFE9")
 INK, INK_SOFT, BORDER = colors.HexColor("#1B211D"), colors.HexColor("#4E594F"), colors.HexColor("#D7DACC")
