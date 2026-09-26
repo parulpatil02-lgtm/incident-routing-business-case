@@ -19,6 +19,27 @@ A real, anonymized ServiceNow log from an IT company: **24,918 incidents and 141
 98% of incidents were opened in three months (March to May 2016), about 8,100 a month, so figures are
 reported per month and not scaled up to a year. Group, category and agent names are anonymized.
 
+## Data preparation
+
+The raw log has one row per ticket update (141,712 rows), so it had to be reshaped into one row per incident
+before anything could be counted ([`01_build_incident_table.py`](scripts/01_build_incident_table.py)):
+
+- **Update order.** Each update carries a counter (`sys_mod_count`), so updates are sorted by incident and
+  counter to know which assignment came first and which came last.
+- **Missing values are marked `?`.** They are treated as "not recorded yet", not as a value. A hand-off is
+  counted only when the assigned group changes between two *recorded* groups.
+- **First and final group.** The first recorded group is the initial assignment and the last is the group
+  that resolved it; the number of changes in between is the hand-off count. 373 incidents never had a group
+  assigned and are excluded from routing analysis.
+- **Fields known at opening.** Category, subcategory, symptom and the other routing fields are taken from the
+  first record where each is filled in, and the fields that only exist after resolution are never used as
+  inputs (checked by a test).
+- **Dates and durations.** Dates are parsed day-first; resolution time is opened to resolved. 23,362 incidents
+  have one; the rest are excluded from timing, and none is negative.
+- **Coverage.** 98% of incidents were opened in three months, so volumes are per month, not scaled to a year.
+- **Cross-checked in SQL.** The hand-off counts were recomputed with window functions and match exactly
+  ([`sql/`](sql)).
+
 ## What I found
 
 - **Hand-offs are common and costly.** 41% of incidents change teams at least once. Comparing incidents that
